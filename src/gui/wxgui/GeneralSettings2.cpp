@@ -2806,7 +2806,7 @@ void GeneralSettings2::OnAccountServiceChanged(wxCommandEvent& event)
 {
 	auto& config = GetConfig();
 	uint32 peristentId = GetSelectedAccountPersistentId();
-	config.SetAccountSelectedService(peristentId, GetNetworkServiceFromSelection(m_active_service->GetSelection()));
+	config.SetAccountSelectedService(peristentId, GetNetworkServiceFromSelection(m_active_service->GetSelection()), true);
 	UpdateAccountInformation();
 }
 

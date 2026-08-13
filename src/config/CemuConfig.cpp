@@ -3,6 +3,42 @@
 #include "config/ActiveSettings.h"
 #include "Cafe/Account/Account.h"
 
+namespace
+{
+	bool IsValidNetworkService(NetworkService service)
+	{
+		return service == NetworkService::Offline ||
+			service == NetworkService::Nintendo ||
+			service == NetworkService::Pretendo ||
+			service == NetworkService::Custom ||
+			service == NetworkService::Plasma;
+	}
+
+	void MergeAccountNetworkServicesFromSettingsFile(std::unordered_map<uint32, NetworkService>& serviceSelect, const std::unordered_set<uint32>& changedServiceSelect)
+	{
+		tinyxml2::XMLDocument document;
+		const fs::path settingsPath = ActiveSettings::GetConfigPath("settings.xml");
+		if (document.LoadFile(_pathToUtf8(settingsPath).c_str()) != tinyxml2::XML_SUCCESS)
+			return;
+
+		const auto* content = document.FirstChildElement("content");
+		if (!content)
+			return;
+
+		const auto* accountService = content->FirstChildElement("AccountService");
+		if (!accountService)
+			return;
+
+		for (const auto* entry = accountService->FirstChildElement("SelectedService"); entry; entry = entry->NextSiblingElement("SelectedService"))
+		{
+			const uint32 persistentId = entry->UnsignedAttribute("PersistentId", 0);
+			const NetworkService service = static_cast<NetworkService>(entry->IntAttribute("Service", 0));
+			if (persistentId >= Account::kMinPersistendId && IsValidNetworkService(service) && !changedServiceSelect.contains(persistentId))
+				serviceSelect[persistentId] = service;
+		}
+	}
+}
+
 std::optional<CemuExtendTitleGrant> CemuConfig::GetCemuExtendGrant(uint64 titleId) const
 {
 	std::shared_lock lock(cemuextend_grants_mutex);
@@ -422,7 +458,7 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 		NetworkService networkService = static_cast<NetworkService>(serviceIndex);
 		if (persistentId < Account::kMinPersistendId)
 			continue;
-		if(networkService == NetworkService::Offline || networkService == NetworkService::Nintendo || networkService == NetworkService::Pretendo || networkService == NetworkService::Custom || networkService == NetworkService::Plasma)
+		if (IsValidNetworkService(networkService))
 			account.service_select.emplace(persistentId, networkService);
 	}
 	// debug
@@ -462,6 +498,8 @@ XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 
 XMLConfigParser CemuConfig::Save(XMLConfigParser& parser)
 {
+	MergeAccountNetworkServicesFromSettingsFile(account.service_select, account.changed_service_select);
+
 	auto config = parser.set("content");
 	// general settings
 	config.set("logflag", log_flag.GetValue());
@@ -747,11 +785,7 @@ NetworkService CemuConfig::GetAccountNetworkService(uint32 persistentId)
 	{
 		NetworkService serviceIndex = it->second;
 		// make sure the returned service is valid
-		if (serviceIndex != NetworkService::Offline &&
-			serviceIndex != NetworkService::Nintendo &&
-			serviceIndex != NetworkService::Pretendo &&
-			serviceIndex != NetworkService::Custom &&
-			serviceIndex != NetworkService::Plasma)
+		if (!IsValidNetworkService(serviceIndex))
 			return NetworkService::Offline;
 		if( static_cast<NetworkService>(serviceIndex) == NetworkService::Custom && !NetworkConfig::XMLExists() )
 			return NetworkService::Offline; // custom is selected but no custom config exists
@@ -763,7 +797,9 @@ NetworkService CemuConfig::GetAccountNetworkService(uint32 persistentId)
 	return static_cast<NetworkService>(account.legacy_active_service.GetValue() + 1); // +1 because "Offline" now takes index 0
 }
 
-void CemuConfig::SetAccountSelectedService(uint32 persistentId, NetworkService serviceIndex)
+void CemuConfig::SetAccountSelectedService(uint32 persistentId, NetworkService serviceIndex, bool userChangedService)
 {
 	account.service_select[persistentId] = serviceIndex;
+	if (userChangedService)
+		account.changed_service_select.emplace(persistentId);
 }

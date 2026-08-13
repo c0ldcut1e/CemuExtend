@@ -541,6 +541,7 @@ struct CemuConfig
 		ConfigValue<bool> legacy_online_enabled{false};
 		ConfigValue<int> legacy_active_service{0};
 		std::unordered_map<uint32, NetworkService> service_select; // per-account service index. Key is persistentId
+		std::unordered_set<uint32> changed_service_select;
 	}account{};
 
 	// input
@@ -599,7 +600,7 @@ struct CemuConfig
 	void SetGameListCustomName(uint64 titleId, std::string customName);
 
 	NetworkService GetAccountNetworkService(uint32 persistentId);
-	void SetAccountSelectedService(uint32 persistentId, NetworkService serviceIndex);
+	void SetAccountSelectedService(uint32 persistentId, NetworkService serviceIndex, bool userChangedService = false);
 
 	// emulated usb devices
 	struct
