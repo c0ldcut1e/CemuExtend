@@ -11,15 +11,18 @@
 
 class TcpGeckoServer
 {
-public:
+  public:
 	explicit TcpGeckoServer(uint16_t port, bool allowLan);
 	~TcpGeckoServer();
 
 	bool Initialize();
 
-	bool IsConnected() const { return m_clientConnected.load(); }
+	bool IsConnected() const
+	{
+		return m_clientConnected.load();
+	}
 
-private:
+  private:
 	void ThreadFunc();
 	void ProcessClient(SOCKET clientSocket, const std::string& clientIp);
 
@@ -30,7 +33,7 @@ private:
 	bool RecvLengthPrefixedString(SOCKET s, std::vector<uint8_t>& out, uint32_t maxSize);
 
 	bool CmdWrite(SOCKET s, int size);
-	bool CmdReadMemory(SOCKET s);
+	bool CmdReadMemory(SOCKET s, bool kernelCommand);
 	bool CmdValidateAddressRange(SOCKET s);
 	bool CmdDisassemble(SOCKET s);
 	bool CmdUploadMemory(SOCKET s);
@@ -87,4 +90,4 @@ namespace TcpGecko
 	void OnTitleShutdown();
 
 	void Tick();
-}
+} // namespace TcpGecko
